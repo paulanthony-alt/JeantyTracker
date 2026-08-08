@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a1a2f" />
+  <meta name="description" content="Jeanty Tracker — the best days and hours to take the boat out." />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./assets/logo.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./assets/logo.svg" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Jeanty" />
+  <link rel="stylesheet" href="./css/styles.css" />
+  <title>Jeanty Tracker</title>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <img src="./assets/logo.svg" alt="" class="brand-logo" />
+      <div class="brand-text">
+        <h1>Jeanty Tracker</h1>
+        <button id="location-btn" class="location-btn" type="button">
+          <span class="pin">📍</span><span id="location-label">Set location</span>
+        </button>
+      </div>
+    </div>
+    <button id="settings-btn" class="icon-btn" type="button" aria-label="Settings">⚙️</button>
+  </header>
+
+  <main id="view" class="view" aria-live="polite">
+    <!-- Rendered by js/app.js -->
+  </main>
+
+  <nav class="tabbar" aria-label="Sports and sunset">
+    <a href="#/tubing"       class="tab" data-tab="tubing"><span class="tab-ico">🛟</span><span>Tubing</span></a>
+    <a href="#/wakeboarding" class="tab" data-tab="wakeboarding"><span class="tab-ico">🏄</span><span>Wake</span></a>
+    <a href="#/speedboating" class="tab" data-tab="speedboating"><span class="tab-ico">🚤</span><span>Speed</span></a>
+    <a href="#/hydrofoiling" class="tab" data-tab="hydrofoiling"><span class="tab-ico">🪽</span><span>Foil</span></a>
+    <a href="#/sunset"       class="tab" data-tab="sunset"><span class="tab-ico">🌅</span><span>Sunset</span></a>
+  </nav>
+
+  <!-- Location modal -->
+  <dialog id="location-modal" class="modal">
+    <form method="dialog" class="modal-body" id="location-form">
+      <h2>Location</h2>
+      <p class="muted">Use your current position, or enter coordinates / a place name.</p>
+      <button type="button" id="use-gps" class="btn btn-primary">📍 Use my current location</button>
+      <div class="divider"><span>or</span></div>
+      <label class="field">
+        <span>Search a place</span>
+        <input type="text" id="place-input" placeholder="e.g. Miami, FL" autocomplete="off" />
+      </label>
+      <div id="place-results" class="place-results"></div>
+      <div class="row">
+        <label class="field">
+          <span>Latitude</span>
+          <input type="number" id="lat-input" step="0.0001" placeholder="25.7617" />
+        </label>
+        <label class="field">
+          <span>Longitude</span>
+          <input type="number" id="lon-input" step="0.0001" placeholder="-80.1918" />
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="location-cancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="location-save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Settings modal -->
+  <dialog id="settings-modal" class="modal">
+    <div class="modal-body">
+      <h2>Settings</h2>
+      <label class="field">
+        <span>Units</span>
+        <select id="units-select">
+          <option value="imperial">Imperial (°F, mph, ft)</option>
+          <option value="metric">Metric (°C, km/h, m)</option>
+        </select>
+      </label>
+
+      <div class="setting-block">
+        <h3>Sunset alerts</h3>
+        <p class="muted">Get a push notification when an exceptionally beautiful sunset is forecast.</p>
+        <label class="switch-row">
+          <span>Enable sunset notifications</span>
+          <input type="checkbox" id="notify-toggle" />
+        </label>
+        <label class="field">
+          <span>Alert when beauty score is at least: <b id="threshold-val">80</b></span>
+          <input type="range" id="threshold-range" min="60" max="95" step="5" value="80" />
+        </label>
+        <button type="button" class="btn" id="test-notify">Send a test notification</button>
+        <p id="notify-status" class="muted small"></p>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="settings-close">Done</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

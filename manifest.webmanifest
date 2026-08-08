@@ -1,0 +1,25 @@
+{
+  "name": "Jeanty Tracker",
+  "short_name": "Jeanty",
+  "description": "Track weather, waves, current, tide and sunsets for the best days to take the boat out.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a1a2f",
+  "theme_color": "#0a1a2f",
+  "icons": [
+    {
+      "src": "./assets/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

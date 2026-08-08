@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Jeanty Tracker logo">
+  <!-- PLACEHOLDER LOGO — swap this file with the real Jeanty Tracker logo when ready. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a1a2f"/>
+      <stop offset="0.55" stop-color="#123a63"/>
+      <stop offset="1" stop-color="#1e6091"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd166"/>
+      <stop offset="1" stop-color="#ff934f"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#sky)"/>
+  <circle cx="256" cy="232" r="92" fill="url(#sun)"/>
+  <!-- horizon waves -->
+  <g fill="none" stroke="#8ecae6" stroke-width="14" stroke-linecap="round" opacity="0.95">
+    <path d="M60 336 q34 -26 68 0 t68 0 t68 0 t68 0 t68 0"/>
+    <path d="M60 386 q34 -26 68 0 t68 0 t68 0 t68 0 t68 0" opacity="0.75"/>
+    <path d="M60 436 q34 -26 68 0 t68 0 t68 0 t68 0 t68 0" opacity="0.5"/>
+  </g>
+</svg>
