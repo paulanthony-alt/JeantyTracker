@@ -1,20 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Jeanty Tracker icon">
-  <!-- Maskable variant: important content kept within the safe zone (center 80%). -->
-  <defs>
-    <linearGradient id="sky2" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#0a1a2f"/>
-      <stop offset="0.55" stop-color="#123a63"/>
-      <stop offset="1" stop-color="#1e6091"/>
-    </linearGradient>
-    <linearGradient id="sun2" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffd166"/>
-      <stop offset="1" stop-color="#ff934f"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" fill="url(#sky2)"/>
-  <circle cx="256" cy="238" r="76" fill="url(#sun2)"/>
-  <g fill="none" stroke="#8ecae6" stroke-width="13" stroke-linecap="round">
-    <path d="M120 330 q28 -22 56 0 t56 0 t56 0 t56 0"/>
-    <path d="M120 372 q28 -22 56 0 t56 0 t56 0 t56 0" opacity="0.7"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Jeanty Tracker">
+  <!-- Maskable: full-bleed navy with the mark kept inside the safe zone (center 80%). -->
+  <rect width="512" height="512" fill="#16294a"/>
+  <g fill="#ffffff" transform="translate(256 262) scale(0.8) translate(-256 -262)">
+    <circle cx="256" cy="120" r="34"/>
+    <g stroke="#ffffff" stroke-width="9" stroke-linecap="round">
+      <line x1="256" y1="52"  x2="256" y2="70"/>
+      <line x1="256" y1="170" x2="256" y2="188"/>
+      <line x1="188" y1="120" x2="206" y2="120"/>
+      <line x1="306" y1="120" x2="324" y2="120"/>
+      <line x1="208" y1="72"  x2="221" y2="85"/>
+      <line x1="291" y1="155" x2="304" y2="168"/>
+      <line x1="304" y1="72"  x2="291" y2="85"/>
+      <line x1="221" y1="155" x2="208" y2="168"/>
+    </g>
+    <path d="M250 196 C 224 262, 208 320, 206 360 L 156 360 C 176 306, 210 246, 250 196 Z"/>
+    <path d="M262 188 L262 360 L346 360 C 330 292, 302 232, 262 188 Z"/>
+    <path d="M84 356 C 200 438, 320 438, 448 356 C 330 398, 196 398, 84 356 Z"/>
+    <path d="M402 356 C 474 342, 476 276, 416 274 C 372 273, 356 320, 392 336 C 411 344, 426 330, 417 316
+             C 431 322, 433 350, 408 358 Z"/>
   </g>
 </svg>
