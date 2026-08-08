@@ -1,6 +1,6 @@
 /* Jeanty Tracker service worker: offline app shell + background sunset alerts. */
 
-const CACHE = 'jeanty-shell-v1';
+const CACHE = 'jeanty-shell-v2';
 const CONFIG_CACHE = 'jeanty-config';
 const CONFIG_KEY = '/__jeanty-config';
 
@@ -40,17 +40,18 @@ self.addEventListener('fetch', (event) => {
   // Never cache API traffic — always fetch fresh forecast data.
   if (url.hostname.endsWith('open-meteo.com')) return;
   if (event.request.method !== 'GET') return;
+  if (url.origin !== self.location.origin) return;
 
+  // Network-first for the app shell: always show the latest version when online,
+  // fall back to the cached copy when offline.
   event.respondWith(
-    caches.match(event.request).then((cached) =>
-      cached || fetch(event.request).then((res) => {
-        if (res.ok && url.origin === self.location.origin) {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(event.request, copy));
-        }
-        return res;
-      }).catch(() => cached)
-    )
+    fetch(event.request).then((res) => {
+      if (res.ok) {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(event.request, copy));
+      }
+      return res;
+    }).catch(() => caches.match(event.request))
   );
 });
 

@@ -1,6 +1,6 @@
 // Jeanty Tracker — app controller: routing, state, modals, data loading.
 
-import { SPORTS, SPORT_ORDER, loadSettings, saveSettings } from './config.js';
+import { SPORTS, SPORT_ORDER, PRESET_SPOTS, loadSettings, saveSettings } from './config.js';
 import { fetchConditions, geocode, reverseLabel } from './api.js';
 import * as ui from './ui.js';
 import {
@@ -94,8 +94,59 @@ function openLocationModal() {
   locModal.showModal();
 }
 
-document.getElementById('location-btn').addEventListener('click', openLocationModal);
 document.getElementById('location-cancel').addEventListener('click', () => locModal.close());
+
+// ---------- Harbor / spot switcher ----------
+const locBtn = document.getElementById('location-btn');
+const spotMenu = document.getElementById('spot-menu');
+
+function buildSpotMenu() {
+  const activeId = settings.location?.spotId ?? null;
+  const items = PRESET_SPOTS.map((s) => `
+    <button class="spot-item ${s.id === activeId ? 'active' : ''}" role="menuitem" data-spot="${s.id}">
+      <span class="s-ico">${s.id === 'sound' ? '🌊' : '⚓'}</span>
+      <span class="s-name">${s.name}</span>
+      <span class="s-check">✓</span>
+    </button>`).join('');
+  spotMenu.innerHTML = items +
+    `<div class="spot-sep"></div>
+     <button class="spot-item custom ${activeId ? '' : 'active'}" role="menuitem" data-spot="__custom">
+       <span class="s-ico">📍</span>
+       <span class="s-name">Other location / GPS…</span>
+       <span class="s-check">✓</span>
+     </button>`;
+}
+
+function openSpotMenu() {
+  buildSpotMenu();
+  spotMenu.hidden = false;
+  locBtn.setAttribute('aria-expanded', 'true');
+}
+function closeSpotMenu() {
+  spotMenu.hidden = true;
+  locBtn.setAttribute('aria-expanded', 'false');
+}
+function toggleSpotMenu() {
+  if (spotMenu.hidden) openSpotMenu(); else closeSpotMenu();
+}
+
+locBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleSpotMenu(); });
+
+spotMenu.addEventListener('click', (e) => {
+  const item = e.target.closest('.spot-item');
+  if (!item) return;
+  const id = item.dataset.spot;
+  closeSpotMenu();
+  if (id === '__custom') { openLocationModal(); return; }
+  const spot = PRESET_SPOTS.find((s) => s.id === id);
+  if (spot) applyLocation(spot.lat, spot.lon, spot.name, spot.id);
+});
+
+// Close the menu when clicking elsewhere or pressing Escape.
+document.addEventListener('click', (e) => {
+  if (!spotMenu.hidden && !e.target.closest('.spot-switcher')) closeSpotMenu();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSpotMenu(); });
 
 document.getElementById('use-gps').addEventListener('click', () => {
   const btn = document.getElementById('use-gps');
@@ -145,8 +196,8 @@ document.getElementById('location-save').addEventListener('click', async () => {
   locModal.close();
 });
 
-async function applyLocation(lat, lon, label) {
-  settings.location = { lat, lon, label };
+async function applyLocation(lat, lon, label, spotId = null) {
+  settings.location = { lat, lon, label, spotId };
   saveSettings(settings);
   document.getElementById('location-label').textContent = label;
   dataset = null; // invalidate cache
@@ -235,9 +286,13 @@ document.getElementById('test-notify').addEventListener('click', async () => {
 
 // ---------- Boot ----------
 function boot() {
-  if (settings.location) {
-    document.getElementById('location-label').textContent = settings.location.label;
+  // Fresh install: default to the first saved harbor so data loads immediately.
+  if (!settings.location) {
+    const first = PRESET_SPOTS[0];
+    settings.location = { lat: first.lat, lon: first.lon, label: first.name, spotId: first.id };
+    saveSettings(settings);
   }
+  document.getElementById('location-label').textContent = settings.location.label;
   if (!location.hash) location.hash = '#/tubing';
   render();
   registerServiceWorker().then(() => {

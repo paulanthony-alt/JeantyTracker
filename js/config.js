@@ -1,5 +1,14 @@
 // Central config: sports, scoring parameters, unit helpers, persisted settings.
 
+// Saved harbors / spots for the quick switcher in the header.
+// Coordinates are approximate — tweak lat/lon here to fine-tune any spot.
+export const PRESET_SPOTS = [
+  { id: 'byram',    name: 'Byram Harbor',         lat: 41.0010, lon: -73.6570 },
+  { id: 'coscob',   name: 'Cos Cob Harbor',       lat: 41.0250, lon: -73.5980 },
+  { id: 'oldgwich', name: 'Old Greenwich Harbor', lat: 41.0300, lon: -73.5670 },
+  { id: 'sound',    name: 'Out on the Sound',     lat: 40.9550, lon: -73.6000 },
+];
+
 export const SPORTS = {
   tubing: {
     key: 'tubing',

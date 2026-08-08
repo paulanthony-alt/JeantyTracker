@@ -20,9 +20,12 @@
       <img src="./assets/logo.svg" alt="" class="brand-logo" />
       <div class="brand-text">
         <h1>Jeanty Tracker</h1>
-        <button id="location-btn" class="location-btn" type="button">
-          <span class="pin">📍</span><span id="location-label">Set location</span>
-        </button>
+        <div class="spot-switcher">
+          <button id="location-btn" class="location-btn" type="button" aria-haspopup="true" aria-expanded="false">
+            <span class="pin">📍</span><span id="location-label">Set harbor</span><span class="caret">▾</span>
+          </button>
+          <div id="spot-menu" class="spot-menu" role="menu" hidden></div>
+        </div>
       </div>
     </div>
     <button id="settings-btn" class="icon-btn" type="button" aria-label="Settings">⚙️</button>

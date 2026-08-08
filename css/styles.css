@@ -59,6 +59,31 @@ body {
   font-size: 0.82rem; padding: 2px 0; cursor: pointer;
 }
 .location-btn .pin { font-size: 0.75rem; }
+.location-btn .caret { font-size: 0.7rem; opacity: 0.8; margin-left: 2px; }
+
+/* ---------- Harbor / spot switcher ---------- */
+.spot-switcher { position: relative; }
+.spot-menu {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 40;
+  min-width: 230px; max-width: 82vw;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; box-shadow: var(--shadow); padding: 6px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.spot-menu[hidden] { display: none; }
+.spot-menu .spot-item {
+  display: flex; align-items: center; gap: 10px; text-align: left;
+  background: none; border: none; color: var(--text);
+  padding: 11px 12px; border-radius: 10px; cursor: pointer; font-size: 0.95rem; width: 100%;
+}
+.spot-menu .spot-item:hover, .spot-menu .spot-item:focus-visible { background: var(--surface-2); }
+.spot-menu .spot-item .s-ico { font-size: 1.05rem; width: 20px; text-align: center; flex: none; }
+.spot-menu .spot-item .s-name { flex: 1; }
+.spot-menu .spot-item .s-check { color: var(--accent); font-weight: 800; opacity: 0; }
+.spot-menu .spot-item.active { background: var(--surface-2); }
+.spot-menu .spot-item.active .s-check { opacity: 1; }
+.spot-menu .spot-sep { height: 1px; background: var(--border); margin: 4px 2px; }
+.spot-menu .spot-item.custom { color: var(--muted); font-size: 0.88rem; }
 .icon-btn {
   background: var(--surface); border: 1px solid var(--border);
   color: var(--text); width: 42px; height: 42px; border-radius: 12px;
