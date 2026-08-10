@@ -1,7 +1,8 @@
 // Pure-ish render functions that return HTML strings for the main view.
 
 import { SPORTS, fmtTemp, fmtWind, fmtWave, fmtCurrent, fmtTide } from './config.js';
-import { scoreHour, scoreClass, scoreLabel, groupByDay, summarizeDay } from './scoring.js';
+import { scoreHour, scoreClass, scoreLabel, groupByDay, summarizeDay,
+  effectiveWaveM, boatWakeMetres } from './scoring.js';
 import { sunsetForecast, sunsetClass, sunsetLabel, sunsetDesc } from './sunset.js';
 import { weatherIcon, weatherText } from './weathercodes.js';
 
@@ -68,9 +69,13 @@ export function sportView(dataset, sportKey, selectedDate) {
     ? `<div class="best-hours">🕑 Best window: <b>${sum.bestHours.map(timeStr).join(', ')}</b></div>`
     : `<div class="best-hours muted">No standout hours — check other days.</div>`;
 
-  const marineNote = dataset.hasMarine ? '' :
-    `<div class="notice">No marine (wave/current/tide) data for this spot — it looks inland.
-     Scores use weather, wind and temperature only.</div>`;
+  const marineNote = dataset.hasMarine
+    ? `<div class="notice">🌊 Wave figures blend the marine forecast with an estimate of
+        <b>boat-traffic wake</b> — busier midday and on weekends — because the forecast models
+        can't see other boats' wakes. A 🚤 marks hours where wake is the main chop.</div>`
+    : `<div class="notice">🌊 No open-water wave model here, so wave figures are estimated from
+        <b>boat-traffic wake</b> and wind chop rather than reported as flat calm.
+        Current and tide need a marine station and aren't available at this spot.</div>`;
 
   const rows = activeHours.map((h) => hourRow(h, sport)).join('');
 
@@ -120,9 +125,14 @@ function hourRow(h, sport) {
     : cls.replace('score-', '') === 'mid' ? 'mid'
     : cls.replace('score-', '') === 'poor' ? 'poor' : 'bad'})`;
 
+  const effWave = effectiveWaveM(h);
+  const wake = boatWakeMetres(h);
+  const wakeDominant = wake >= 0.10 && wake >= (h.waveM ?? 0);
+  const waveTitle = wakeDominant ? 'Chop dominated by estimated boat wake' : 'Marine forecast + estimated boat wake';
+
   const metrics = [
     `<span class="m">💨 <b>${fmtWind(h.windKn, units)}</b></span>`,
-    h.waveM != null ? `<span class="m">🌊 <b>${fmtWave(h.waveM, units)}</b></span>` : '',
+    `<span class="m" title="${waveTitle}">🌊 <b>${fmtWave(effWave, units)}</b>${wakeDominant ? ' 🚤' : ''}</span>`,
     h.currentKn != null ? `<span class="m">🧭 <b>${fmtCurrent(h.currentKn, units)}</b></span>` : '',
     h.tideM != null ? `<span class="m">🌙 <b>${fmtTide(h.tideM, units)}</b></span>` : '',
     `<span class="m">🌡️ <b>${fmtTemp(h.temp, units)}</b></span>`,
@@ -144,7 +154,7 @@ function legend() {
     <span><span class="dot" style="background:var(--mid)"></span>Fair</span>
     <span><span class="dot" style="background:var(--poor)"></span>Poor</span>
     <span><span class="dot" style="background:var(--bad)"></span>Avoid</span>
-    <span>💨 wind · 🌊 wave · 🧭 current · 🌙 tide · 🌡️ air</span>
+    <span>💨 wind · 🌊 wave (incl. boat wake) · 🚤 wake-dominated · 🧭 current · 🌙 tide · 🌡️ air</span>
   </div>`;
 }
 

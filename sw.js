@@ -1,6 +1,6 @@
 /* Jeanty Tracker service worker: offline app shell + background sunset alerts. */
 
-const CACHE = 'jeanty-shell-v2';
+const CACHE = 'jeanty-shell-v3';
 const CONFIG_CACHE = 'jeanty-config';
 const CONFIG_KEY = '/__jeanty-config';
 

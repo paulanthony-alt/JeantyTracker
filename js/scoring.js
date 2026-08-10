@@ -1,5 +1,66 @@
 // Suitability scoring for each watersport, plus daily roll-ups.
 
+// ---------- Boat-traffic wake model ----------
+// The marine forecast only models open-water swell + wind-waves; it can't see
+// other boats. In a busy harbor on a calm afternoon the real chop is almost all
+// boat wake, so a reported 0.1 ft is meaningless. We estimate an "effective"
+// significant chop by adding a wake term driven by time of day, day of week,
+// how busy the spot is, and whether the weather keeps boats home.
+
+// Per-location busyness (0..1). Set from the active spot; falls back to medium.
+let currentTraffic = 0.6;
+export function setTraffic(t) {
+  if (typeof t === 'number' && !Number.isNaN(t)) currentTraffic = Math.max(0, Math.min(1, t));
+}
+
+// Estimated boat-wake chop for an hour, in metres (significant-height equivalent).
+export function boatWakeMetres(hour, traffic = currentTraffic) {
+  const d = hour.time;
+  if (!(d instanceof Date) || Number.isNaN(d)) return 0;
+
+  const h = d.getHours() + d.getMinutes() / 60;
+  const dow = d.getDay(); // 0 Sun … 6 Sat
+
+  // Time-of-day activity: near zero overnight, ramps up through the morning,
+  // peaks mid-afternoon (~2:30pm), tapers toward dusk.
+  let tod;
+  if (h < 6 || h > 21) {
+    tod = 0.03;
+  } else {
+    tod = Math.exp(-Math.pow((h - 14.5) / 4.2, 2)); // gaussian peak at 14.5
+    tod = Math.max(tod, 0.08);                       // daytime floor
+  }
+  if (hour.isDay === false) tod *= 0.3;              // little traffic after dark
+
+  // Day of week: weekends busiest, Friday elevated, midweek quieter.
+  const dowFactor = (dow === 0 || dow === 6) ? 1.0 : (dow === 5 ? 0.8 : 0.55);
+
+  // Bad weather keeps boats on the trailer.
+  let weather = 1;
+  if (hour.precip != null && hour.precip > 0) weather *= Math.max(0.15, 1 - hour.precip / 2);
+  if (hour.windKn != null && hour.windKn > 15) {
+    weather *= Math.max(0.3, 1 - (hour.windKn - 15) / 20);
+  }
+
+  // Peak-traffic amplitude (~1.1 ft sig. chop in a busy harbor at full tilt).
+  const BASE = 0.34;
+  return BASE * traffic * tod * dowFactor * weather;
+}
+
+// Effective wave/chop for scoring & display, in metres: the marine model
+// combined (in energy) with estimated boat wake. When no marine model is
+// available (inland/enclosed water) we substitute a light wind-chop estimate so
+// it isn't reported as glass.
+export function effectiveWaveM(hour, traffic = currentTraffic) {
+  let base = hour.waveM;
+  if (base == null) {
+    const wind = hour.windKn ?? 0;
+    base = Math.max(0, wind - 5) * 0.006; // gentle local wind chop
+  }
+  const wake = boatWakeMetres(hour, traffic);
+  return Math.sqrt(base * base + wake * wake);
+}
+
 // Map a value to 0..1: full score at/below `ideal`, linearly down to 0 at `tolerable`.
 function rampDown(value, ideal, tolerable) {
   if (value == null) return null;
@@ -28,7 +89,8 @@ export function scoreHour(hour, sport) {
   const windS = rampDown(hour.windKn, sport.wind.ideal, sport.wind.tolerable);
   if (windS != null) parts.push([windS, w.wind]);
 
-  const waveS = rampDown(hour.waveM, sport.wave.ideal, sport.wave.tolerable);
+  // Effective chop includes estimated boat wake, so it's always scorable.
+  const waveS = rampDown(effectiveWaveM(hour), sport.wave.ideal, sport.wave.tolerable);
   if (waveS != null) parts.push([waveS, w.wave]);
 
   const curS = rampDown(hour.currentKn, sport.current.ideal, sport.current.tolerable);

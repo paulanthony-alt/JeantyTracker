@@ -1,7 +1,8 @@
 // Jeanty Tracker — app controller: routing, state, modals, data loading.
 
-import { SPORTS, SPORT_ORDER, PRESET_SPOTS, loadSettings, saveSettings } from './config.js';
+import { SPORTS, SPORT_ORDER, PRESET_SPOTS, DEFAULT_TRAFFIC, loadSettings, saveSettings } from './config.js';
 import { fetchConditions, geocode, reverseLabel } from './api.js';
+import { setTraffic } from './scoring.js';
 import * as ui from './ui.js';
 import {
   registerServiceWorker, notificationsSupported, permissionState,
@@ -197,7 +198,10 @@ document.getElementById('location-save').addEventListener('click', async () => {
 });
 
 async function applyLocation(lat, lon, label, spotId = null) {
-  settings.location = { lat, lon, label, spotId };
+  const preset = spotId ? PRESET_SPOTS.find((s) => s.id === spotId) : null;
+  const traffic = preset?.traffic ?? DEFAULT_TRAFFIC;
+  settings.location = { lat, lon, label, spotId, traffic };
+  setTraffic(traffic);
   saveSettings(settings);
   document.getElementById('location-label').textContent = label;
   dataset = null; // invalidate cache
@@ -292,6 +296,13 @@ function boot() {
     settings.location = { lat: first.lat, lon: first.lon, label: first.name, spotId: first.id };
     saveSettings(settings);
   }
+  // Restore the boat-traffic factor for the active spot.
+  const loc = settings.location;
+  const traffic = loc.traffic
+    ?? (loc.spotId ? PRESET_SPOTS.find((s) => s.id === loc.spotId)?.traffic : null)
+    ?? DEFAULT_TRAFFIC;
+  setTraffic(traffic);
+
   document.getElementById('location-label').textContent = settings.location.label;
   if (!location.hash) location.hash = '#/tubing';
   render();
