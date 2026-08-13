@@ -63,7 +63,9 @@ async function render() {
   if (currentRoute() !== route) return; // route changed while loading
 
   if (route === 'sunset') {
-    view.innerHTML = ui.sunsetView(data, settings.sunsetThreshold);
+    const loc = settings.location;
+    const locKey = loc.spotId || `${loc.lat.toFixed(3)},${loc.lon.toFixed(3)}`;
+    view.innerHTML = ui.sunsetView(data, settings.sunsetThreshold, locKey);
   } else {
     view.innerHTML = ui.sportView(data, route, selectedDay[route]);
   }

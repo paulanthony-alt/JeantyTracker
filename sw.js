@@ -1,6 +1,6 @@
 /* Jeanty Tracker service worker: offline app shell + background sunset alerts. */
 
-const CACHE = 'jeanty-shell-v3';
+const CACHE = 'jeanty-shell-v4';
 const CONFIG_CACHE = 'jeanty-config';
 const CONFIG_KEY = '/__jeanty-config';
 
@@ -93,21 +93,29 @@ function band(v, lo, hiIdeal, hiFull, max) {
   return 1 - (v - hiFull) / (max - hiFull);
 }
 // Compact mirror of js/sunset.js sunsetScoreForHour.
+// Verbatim copy of sunsetScoreForHour in js/sunset.js — keep in sync.
+// test/sunset-parity.mjs asserts this matches. Update both together.
 function sunsetScore(h) {
   if (!h) return null;
-  const high = band(h.cloudHigh, 5, 25, 65, 100);
-  const mid = band(h.cloudMid, 5, 20, 55, 95);
-  const lowP = h.cloudLow != null ? clamp01(1 - h.cloudLow / 70) : 0.7;
-  const humidity = h.humidity != null ? clamp01(1 - (h.humidity - 40) / 55) : 0.6;
-  const vis = h.visibility != null ? clamp01(h.visibility / 20000) : 0.7;
+  const high = band(h.cloudHigh, 5, 20, 55, 95);
+  const mid = band(h.cloudMid, 5, 15, 45, 85);
+  const canvas = 0.65 * high + 0.35 * mid;
+  const humidityClear = h.humidity != null ? clamp01((85 - h.humidity) / 45) : 0.55;
+  const vis = h.visibility != null ? clamp01((h.visibility - 8000) / 17000) : 0.6;
+  const lowClear = h.cloudLow != null ? clamp01(1 - h.cloudLow / 60) : 0.7;
+  const aodClean = h.aod != null ? clamp01(1 - (h.aod - 0.15) / 0.45) : 0.7;
+  const aodColour = h.aod != null ? band(h.aod, 0, 0.05, 0.15, 0.5) : 0.4;
+  const clarity = clamp01(0.5 * humidityClear + 0.3 * vis + 0.2 * lowClear);
   const dry = h.precip != null ? clamp01(1 - h.precip / 1.5) : 1;
-  const cloudStructure = 0.62 * high + 0.38 * mid;
-  const clarity = 0.45 * lowP + 0.25 * vis + 0.30 * humidity;
-  let score = 0.55 * cloudStructure + 0.30 * clarity + 0.15 * 0.5;
-  score *= (0.6 + 0.4 * lowP);
+  let score = canvas * (0.30 + 0.70 * clarity);
+  score += 0.12 * aodColour * clarity;
+  const hazeCap = 0.30 + 0.70 * Math.min(humidityClear, vis, aodClean);
+  score = Math.min(score, hazeCap);
   score *= dry;
-  if ((h.cloudHigh || 0) < 8 && (h.cloudMid || 0) < 8 && (h.cloudLow || 0) < 20) {
-    score = Math.max(score, 0.42 * humidity);
+  score *= (0.55 + 0.45 * lowClear);
+  if ((h.cloudHigh ?? 0) < 8 && (h.cloudMid ?? 0) < 8 && (h.cloudLow ?? 0) < 20) {
+    score = Math.max(score, 0.34 * humidityClear);
+    score = Math.min(score, hazeCap);
   }
   return Math.round(clamp01(score) * 100);
 }
@@ -120,12 +128,16 @@ async function runSunsetCheck() {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
     '&hourly=precipitation,cloud_cover_low,cloud_cover_mid,cloud_cover_high,visibility,relative_humidity_2m' +
     '&daily=sunset&timezone=auto&forecast_days=3';
+  const airUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}` +
+    '&hourly=aerosol_optical_depth&timezone=auto&forecast_days=3';
 
-  let data;
+  let data, air;
   try { data = await (await fetch(url)).json(); } catch { return; }
+  try { air = await (await fetch(airUrl)).json(); } catch { air = null; }
 
   const wh = data.hourly;
   const idx = new Map(wh.time.map((t, i) => [t, i]));
+  const airIdx = air?.hourly ? new Map(air.hourly.time.map((t, i) => [t, i])) : null;
   const now = Date.now();
   const today = new Date().toISOString().slice(0, 10);
 
@@ -139,6 +151,7 @@ async function runSunsetCheck() {
     const hourKey = sunsetStr.slice(0, 13) + ':00';
     const i = idx.has(hourKey) ? idx.get(hourKey) : null;
     if (i == null) continue;
+    const ai = airIdx && airIdx.has(hourKey) ? airIdx.get(hourKey) : null;
     const h = {
       precip: wh.precipitation?.[i],
       cloudLow: wh.cloud_cover_low?.[i],
@@ -146,6 +159,7 @@ async function runSunsetCheck() {
       cloudHigh: wh.cloud_cover_high?.[i],
       visibility: wh.visibility?.[i],
       humidity: wh.relative_humidity_2m?.[i],
+      aod: ai != null ? air.hourly.aerosol_optical_depth?.[ai] : null,
     };
     const score = sunsetScore(h);
     if (score != null && score >= (cfg.sunsetThreshold || 80)) {

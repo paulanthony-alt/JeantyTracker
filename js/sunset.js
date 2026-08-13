@@ -1,10 +1,18 @@
 // Sunset "beauty" model.
 //
-// Vivid sunsets need high & mid clouds to catch and scatter the low-angle light,
-// a clear path to the horizon (few low clouds, decent visibility, not too humid),
-// and a touch of haze/aerosol adds colour — but too much just greys everything out.
-// This is a heuristic scorer inspired by SunsetWx-style forecasting, tuned to the
-// data Open-Meteo provides.
+// Vivid sunsets need high & mid clouds to catch the low-angle light AND clean,
+// clear air for the colour to actually show. The earlier model over-rewarded
+// cloud cover, so a bright hazy/milky veil (lots of high cloud, humid, hazy air)
+// could score high even though it washes out to flat grey-pink in reality.
+//
+// This version treats cloud as the "canvas" and air clarity as a hard gate:
+// no matter how much cloud is present, hazy/humid/low-visibility air caps the
+// score. That pulls washed-out skies down where they belong while keeping
+// clean cirrus-over-a-sharp-horizon evenings high.
+//
+// IMPORTANT: sunsetScoreForHour is duplicated verbatim in sw.js so background
+// notifications match the in-app number. test/sunset-parity.mjs asserts they
+// stay identical — update both together.
 
 function clamp01(x) { return Math.max(0, Math.min(1, x)); }
 
@@ -21,37 +29,47 @@ function band(v, lo, hiIdeal, hiFull, max) {
 
 /**
  * Score a single hour's atmospheric state for sunset beauty (0..100).
+ * Keep in sync with sw.js `sunsetScore`.
  */
 export function sunsetScoreForHour(h) {
   if (!h) return null;
 
-  // High cloud (cirrus) is the star — best around 25–65% coverage.
-  const high = band(h.cloudHigh, 5, 25, 65, 100);          // 0..1
-  // Mid cloud helps too, but less, and saturates lower.
-  const mid = band(h.cloudMid, 5, 20, 55, 95);
-  // Low cloud is the enemy — blocks the horizon light.
-  const lowPenalty = h.cloudLow != null ? clamp01(1 - h.cloudLow / 70) : 0.7;
-  // Humidity: drier air = cleaner, more saturated colour.
-  const humidity = h.humidity != null ? clamp01(1 - (h.humidity - 40) / 55) : 0.6;
-  // Visibility (metres) toward the horizon; 20km+ is excellent.
-  const vis = h.visibility != null ? clamp01(h.visibility / 20000) : 0.7;
-  // Aerosol optical depth: a little adds fiery colour, a lot means haze/smog.
-  const aod = h.aod != null ? band(h.aod, 0, 0.12, 0.28, 0.8) : 0.5;
-  // Rain kills it.
+  // --- Canvas: high & mid cloud to catch the light ---
+  const high = band(h.cloudHigh, 5, 20, 55, 95);
+  const mid = band(h.cloudMid, 5, 15, 45, 85);
+  const canvas = 0.65 * high + 0.35 * mid;                     // 0..1
+
+  // --- Air clarity: this GATES how much colour can show ---
+  // Drier air = cleaner, more saturated colour. Steep: washed out by ~85% RH.
+  const humidityClear = h.humidity != null ? clamp01((85 - h.humidity) / 45) : 0.55;
+  // Visibility toward the horizon: poor below 8 km, excellent at 25 km+.
+  const vis = h.visibility != null ? clamp01((h.visibility - 8000) / 17000) : 0.6;
+  // Low cloud blocks the horizon light.
+  const lowClear = h.cloudLow != null ? clamp01(1 - h.cloudLow / 60) : 0.7;
+  // Aerosol optical depth: a little deepens colour, a lot means haze/smog.
+  const aodClean = h.aod != null ? clamp01(1 - (h.aod - 0.15) / 0.45) : 0.7;
+  const aodColour = h.aod != null ? band(h.aod, 0, 0.05, 0.15, 0.5) : 0.4;
+
+  const clarity = clamp01(0.5 * humidityClear + 0.3 * vis + 0.2 * lowClear);
   const dry = h.precip != null ? clamp01(1 - h.precip / 1.5) : 1;
 
-  // Weighted blend. Cloud structure dominates; horizon clarity gates it.
-  const cloudStructure = 0.62 * high + 0.38 * mid;         // 0..1
-  const clarity = 0.45 * lowPenalty + 0.25 * vis + 0.30 * humidity;
+  // You need canvas AND clarity — multiply so a hazy sky can't score high
+  // however much cloud there is.
+  let score = canvas * (0.30 + 0.70 * clarity);
+  score += 0.12 * aodColour * clarity;               // small colour boost when clean
 
-  let score = (0.55 * cloudStructure + 0.30 * clarity + 0.15 * aod);
-  score *= (0.6 + 0.4 * lowPenalty);   // extra emphasis: low cloud really hurts
+  // Haze ceiling: the murkiest of {humidity, visibility, aerosol} caps the max.
+  const hazeCap = 0.30 + 0.70 * Math.min(humidityClear, vis, aodClean);
+  score = Math.min(score, hazeCap);
+
   score *= dry;
+  score *= (0.55 + 0.45 * lowClear);                 // extra emphasis: low cloud hurts
 
-  // A totally clear sky is a pleasant-but-plain sunset, not a spectacular one —
-  // give it a modest floor so clear evenings don't read as "0".
+  // A clear, dry sky is a pleasant-but-plain sunset — modest floor, still
+  // capped by haze so a milky clear sky doesn't read high.
   if ((h.cloudHigh ?? 0) < 8 && (h.cloudMid ?? 0) < 8 && (h.cloudLow ?? 0) < 20) {
-    score = Math.max(score, 0.42 * humidity);
+    score = Math.max(score, 0.34 * humidityClear);
+    score = Math.min(score, hazeCap);
   }
 
   return Math.round(clamp01(score) * 100);
@@ -79,13 +97,23 @@ export function sunsetDesc(score, hour) {
   if (score == null) return 'Not enough data.';
   const low = hour?.cloudLow ?? null;
   const high = hour?.cloudHigh ?? null;
-  if (score >= 80) return 'High clouds catching the light with a clear horizon — worth stopping the boat for.';
-  if (score >= 65) return 'Good colour likely; some clouds to light up without blocking the sun.';
-  if (score >= 45) {
-    if (low != null && low > 60) return 'Low cloud near the horizon may mute the colour.';
-    return 'A decent but understated sunset.';
+  const hum = hour?.humidity ?? null;
+  const visM = hour?.visibility ?? null;
+  const hazy = (hum != null && hum > 75) || (visM != null && visM < 12000);
+
+  if (score >= 80) return 'High clouds catching the light over a clean, sharp horizon — worth stopping the boat for.';
+  if (score >= 65) return 'Good colour likely; clouds to light up with clear enough air to show it.';
+  if (score >= 50) {
+    if (hazy) return 'Some colour, but hazy/humid air will soften and mute it.';
+    if (low != null && low > 60) return 'Low cloud near the horizon may block the best colour.';
+    return 'A decent, understated sunset.';
   }
-  if (high != null && high < 8) return 'Mostly clear — a soft glow rather than fireworks.';
+  if (score >= 35) {
+    if (hazy) return 'Hazy, milky air likely to wash the colour out to a flat glow.';
+    if (high != null && high < 8) return 'Mostly clear — a soft glow rather than fireworks.';
+    return 'Muted; not much for the sky to work with.';
+  }
+  if (hazy) return 'Thick haze or humidity likely to grey it out.';
   return 'Thick or low cloud likely to grey out the sunset.';
 }
 
@@ -100,8 +128,7 @@ export function hourNearest(hours, targetDate) {
     const diff = Math.abs(h.time - targetDate);
     if (diff < bestDiff) { bestDiff = diff; best = h; }
   }
-  // Only trust it if within ~90 minutes of the sunset.
-  return bestDiff <= 90 * 60 * 1000 ? best : best;
+  return best;
 }
 
 /**
@@ -121,4 +148,43 @@ export function sunsetForecast(dataset) {
         hour,
       };
     });
+}
+
+// ---------- Near-term score lock (stability) ----------
+// Once a sunset is within ~24h its forecast is reliable, so freeze the first
+// score we showed for it — small model wobble shouldn't keep nudging the number
+// for tonight's sunset. Scores further out still move as the forecast updates.
+const LOCK_KEY = 'jeanty.sunsetlocks.v1';
+
+function loadLocks() {
+  try { return JSON.parse(localStorage.getItem(LOCK_KEY) || '{}'); } catch { return {}; }
+}
+function saveLocks(o) {
+  try { localStorage.setItem(LOCK_KEY, JSON.stringify(o)); } catch { /* ignore */ }
+}
+
+/**
+ * Return a display score that's frozen once the sunset is within 24 hours.
+ * `locKey` scopes locks per spot so harbors don't collide.
+ * Returns { score, locked }.
+ */
+export function stableScore(locKey, date, sunsetDate, liveScore) {
+  if (liveScore == null || !sunsetDate) return { score: liveScore, locked: false };
+  const ms = sunsetDate.getTime() - Date.now();
+  const within = ms <= 24 * 3600 * 1000 && ms > -6 * 3600 * 1000; // up to 6h after sunset
+  if (!within) return { score: liveScore, locked: false };
+
+  const all = loadLocks();
+  const key = locKey || 'default';
+  const bucket = all[key] || {};
+
+  if (bucket[date] != null) return { score: bucket[date], locked: true };
+
+  bucket[date] = liveScore;
+  // Prune dates older than 2 days.
+  const cutoff = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
+  for (const d of Object.keys(bucket)) if (d < cutoff) delete bucket[d];
+  all[key] = bucket;
+  saveLocks(all);
+  return { score: liveScore, locked: true };
 }

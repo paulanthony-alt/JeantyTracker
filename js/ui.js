@@ -3,7 +3,7 @@
 import { SPORTS, fmtTemp, fmtWind, fmtWave, fmtCurrent, fmtTide } from './config.js';
 import { scoreHour, scoreClass, scoreLabel, groupByDay, summarizeDay,
   effectiveWaveM, boatWakeMetres } from './scoring.js';
-import { sunsetForecast, sunsetClass, sunsetLabel, sunsetDesc } from './sunset.js';
+import { sunsetForecast, sunsetClass, sunsetLabel, sunsetDesc, stableScore } from './sunset.js';
 import { weatherIcon, weatherText } from './weathercodes.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => (
@@ -159,8 +159,12 @@ function legend() {
 }
 
 // ---------- Sunset page ----------
-export function sunsetView(dataset, threshold) {
-  const forecast = sunsetForecast(dataset);
+export function sunsetView(dataset, threshold, locKey) {
+  // Apply the near-term score lock so tonight's/tomorrow's number stops drifting.
+  const forecast = sunsetForecast(dataset).map((f) => {
+    const { score, locked } = stableScore(locKey, f.date, f.sunsetDate, f.score);
+    return { ...f, score, locked };
+  });
   const cards = forecast.map((f) => sunsetCard(f, threshold)).join('');
 
   const best = forecast.reduce((a, b) => (
@@ -172,17 +176,28 @@ export function sunsetView(dataset, threshold) {
         ${sunsetLabel(best.score)} (${best.score}/100) at ${timeStr(best.sunsetDate)}.</div>`
     : '';
 
-  const marineNote = '';
+  const updated = updatedAgo(dataset.fetchedAt);
 
   return `
     <div class="page-title"><span class="emoji">🌅</span><h2>Sunsets</h2></div>
     <p class="page-sub">Beauty score from cloud layers, horizon clarity, humidity and haze.
       Turn on alerts in ⚙️ to get pinged for the best ones.</p>
     ${heroNote}
-    ${marineNote}
     ${cards}
-    <div class="legend"><span>Scores 0–100 · higher = more vivid colour likely</span></div>
+    <div class="legend">
+      <span>Scores 0–100 · higher = more vivid colour likely</span>
+      <span>🔒 locked (within 24h)${updated ? ` · Forecast updated ${updated}` : ''}</span>
+    </div>
   `;
+}
+
+function updatedAgo(iso) {
+  if (!iso) return '';
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.round(mins / 60);
+  return hrs === 1 ? '1 hour ago' : `${hrs} hours ago`;
 }
 
 function dayName(date) {
@@ -204,7 +219,7 @@ function sunsetCard(f, threshold) {
       </div>
     </div>
     <div class="sunset-info">
-      <h3>${esc(dayName(f.sunsetDate))}</h3>
+      <h3>${esc(dayName(f.sunsetDate))}${f.locked ? ' <span title="Locked in — within 24h" style="font-size:0.8rem">🔒</span>' : ''}</h3>
       <div class="time">${timeStr(f.sunsetDate)}</div>
       <div class="desc"><b>${sunsetLabel(f.score)}.</b> ${esc(sunsetDesc(f.score, f.hour))}</div>
       ${hot ? '<span class="sunset-tag">🔔 Alert-worthy</span>' : ''}
