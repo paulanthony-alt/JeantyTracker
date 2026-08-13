@@ -3,6 +3,7 @@
 import { SPORTS, SPORT_ORDER, PRESET_SPOTS, DEFAULT_TRAFFIC, loadSettings, saveSettings } from './config.js';
 import { fetchConditions, geocode, reverseLabel } from './api.js';
 import { setTraffic } from './scoring.js';
+import { setRating } from './ratings.js';
 import * as ui from './ui.js';
 import {
   registerServiceWorker, notificationsSupported, permissionState,
@@ -71,12 +72,21 @@ async function render() {
   }
 }
 
-// Day-chip selection (event delegation).
+// Day-chip selection + sunset star ratings (event delegation).
 view.addEventListener('click', (e) => {
   const chip = e.target.closest('.day-chip');
   if (chip) {
     const route = currentRoute();
     selectedDay[route] = chip.dataset.day;
+    render();
+    return;
+  }
+  const star = e.target.closest('.star');
+  if (star) {
+    const loc = settings.location;
+    const locKey = loc.spotId || `${loc.lat.toFixed(3)},${loc.lon.toFixed(3)}`;
+    const model = star.dataset.model === '' ? null : Number(star.dataset.model);
+    setRating(locKey, star.dataset.rateDate, Number(star.dataset.star), model);
     render();
     return;
   }

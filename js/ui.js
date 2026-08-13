@@ -4,6 +4,7 @@ import { SPORTS, fmtTemp, fmtWind, fmtWave, fmtCurrent, fmtTide } from './config
 import { scoreHour, scoreClass, scoreLabel, groupByDay, summarizeDay,
   effectiveWaveM, boatWakeMetres } from './scoring.js';
 import { sunsetForecast, sunsetClass, sunsetLabel, sunsetDesc, stableScore } from './sunset.js';
+import { getRating, ratingStats, STAR_WORD } from './ratings.js';
 import { weatherIcon, weatherText } from './weathercodes.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => (
@@ -160,12 +161,13 @@ function legend() {
 
 // ---------- Sunset page ----------
 export function sunsetView(dataset, threshold, locKey) {
+  const todayKey = new Date().toISOString().slice(0, 10);
   // Apply the near-term score lock so tonight's/tomorrow's number stops drifting.
   const forecast = sunsetForecast(dataset).map((f) => {
     const { score, locked } = stableScore(locKey, f.date, f.sunsetDate, f.score);
     return { ...f, score, locked };
   });
-  const cards = forecast.map((f) => sunsetCard(f, threshold)).join('');
+  const cards = forecast.map((f) => sunsetCard(f, threshold, locKey, todayKey)).join('');
 
   const best = forecast.reduce((a, b) => (
     (b.score ?? -1) > (a?.score ?? -1) ? b : a
@@ -184,11 +186,42 @@ export function sunsetView(dataset, threshold, locKey) {
       Turn on alerts in ⚙️ to get pinged for the best ones.</p>
     ${heroNote}
     ${cards}
+    ${ratingLog(locKey)}
     <div class="legend">
       <span>Scores 0–100 · higher = more vivid colour likely</span>
       <span>🔒 locked (within 24h)${updated ? ` · Forecast updated ${updated}` : ''}</span>
     </div>
   `;
+}
+
+function ratingLog(locKey) {
+  const { entries, n, bias, mae } = ratingStats(locKey);
+  if (!n) {
+    return `<div class="notice">⭐ <b>Rate your sunsets.</b> After you've seen tonight's sunset,
+      tap the stars on its card. Your ratings are compared to the model here so it can be tuned to
+      what you actually see.</div>`;
+  }
+  const dir = bias > 3 ? `rates about <b>${Math.round(bias)} pts higher</b> than you`
+    : bias < -3 ? `rates about <b>${Math.round(-bias)} pts lower</b> than you`
+    : `is <b>well matched</b> to your ratings`;
+  const rows = entries.slice(0, 8).map((e) => `
+    <div class="log-row">
+      <span class="log-date">${esc(shortDate(e.date))}</span>
+      <span class="log-stars">${'★'.repeat(e.stars)}${'☆'.repeat(5 - e.stars)}</span>
+      <span class="log-cmp">you ${e.userVal} · model ${e.model}</span>
+    </div>`).join('');
+  return `
+    <div class="section-h">Your sunset log</div>
+    <div class="summary">
+      <div class="best-hours">Over ${n} rated sunset${n > 1 ? 's' : ''}, the model ${dir}
+        (avg miss ${Math.round(mae)} pts).</div>
+      <div class="log-list">${rows}</div>
+    </div>`;
+}
+
+function shortDate(dateStr) {
+  const d = new Date(dateStr + 'T12:00');
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
 function updatedAgo(iso) {
@@ -206,11 +239,16 @@ function dayName(date) {
   return date.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
-function sunsetCard(f, threshold) {
+function sunsetCard(f, threshold, locKey, todayKey) {
   const cls = sunsetClass(f.score);
   const hot = f.score != null && f.score >= threshold;
   const pct = f.score ?? 0;
   const ring = `conic-gradient(var(--accent-2) ${pct * 3.6}deg, var(--border) 0deg)`;
+
+  const rating = getRating(locKey, f.date);
+  // You can only rate a sunset you've seen: today or earlier.
+  const canRate = f.date <= todayKey;
+  const rateRow = ratingRow(f, rating, canRate);
 
   return `<div class="sunset-day ${hot ? 'hot' : ''}">
     <div class="sunset-meter" style="border-radius:50%;background:${ring};display:flex;align-items:center;justify-content:center">
@@ -223,6 +261,22 @@ function sunsetCard(f, threshold) {
       <div class="time">${timeStr(f.sunsetDate)}</div>
       <div class="desc"><b>${sunsetLabel(f.score)}.</b> ${esc(sunsetDesc(f.score, f.hour))}</div>
       ${hot ? '<span class="sunset-tag">🔔 Alert-worthy</span>' : ''}
+      ${rateRow}
     </div>
   </div>`;
+}
+
+function ratingRow(f, rating, canRate) {
+  if (!canRate && !rating) {
+    return `<div class="rate-row muted small">⭐ Rate it after sunset</div>`;
+  }
+  const stars = [1, 2, 3, 4, 5].map((s) => {
+    const on = rating && s <= rating.stars;
+    return `<button type="button" class="star ${on ? 'on' : ''}" data-rate-date="${f.date}"
+      data-star="${s}" data-model="${f.score ?? ''}" aria-label="${s} star${s > 1 ? 's' : ''}">★</button>`;
+  }).join('');
+  const meta = rating
+    ? `<span class="rate-meta">You: ${esc(STAR_WORD[rating.stars])} · model ${rating.model ?? '–'}</span>`
+    : `<span class="rate-meta muted">Tap to rate what you saw</span>`;
+  return `<div class="rate-row">${stars}${meta}</div>`;
 }

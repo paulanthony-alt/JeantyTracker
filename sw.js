@@ -1,6 +1,6 @@
 /* Jeanty Tracker service worker: offline app shell + background sunset alerts. */
 
-const CACHE = 'jeanty-shell-v4';
+const CACHE = 'jeanty-shell-v5';
 const CONFIG_CACHE = 'jeanty-config';
 const CONFIG_KEY = '/__jeanty-config';
 
@@ -17,6 +17,7 @@ const SHELL = [
   './js/ui.js',
   './js/notifications.js',
   './js/weathercodes.js',
+  './js/ratings.js',
   './assets/logo.svg',
   './assets/icon-maskable.svg',
 ];

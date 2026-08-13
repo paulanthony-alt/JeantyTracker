@@ -185,6 +185,25 @@ body {
   background: var(--accent-2); color: #3a2a00;
 }
 
+/* ---------- Sunset ratings ---------- */
+.rate-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.star {
+  background: none; border: none; padding: 0 1px; cursor: pointer;
+  font-size: 1.3rem; line-height: 1; color: var(--border);
+  transition: transform 0.08s ease;
+}
+.star.on { color: var(--accent-2); }
+.star:active { transform: scale(1.25); }
+.rate-meta { font-size: 0.74rem; color: var(--muted); margin-left: 6px; }
+.log-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.log-row {
+  display: grid; grid-template-columns: 58px 1fr auto; gap: 10px; align-items: center;
+  font-size: 0.82rem; padding: 6px 0; border-top: 1px solid var(--border);
+}
+.log-date { color: var(--muted); }
+.log-stars { color: var(--accent-2); letter-spacing: 1px; }
+.log-cmp { color: var(--muted); font-size: 0.76rem; }
+
 /* ---------- Buttons / forms ---------- */
 .btn {
   background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
