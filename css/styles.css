@@ -185,6 +185,14 @@ body {
   background: var(--accent-2); color: #3a2a00;
 }
 
+.sunset-cond { margin-top: 6px; gap: 4px 10px; }
+.cause-tag {
+  display: inline-block; font-size: 0.72rem; font-weight: 700;
+  padding: 2px 8px; border-radius: 999px; margin-top: 6px;
+  background: rgba(239, 71, 111, 0.16); color: #ff9db3;
+  border: 1px solid rgba(239, 71, 111, 0.4);
+}
+
 /* ---------- Sunset ratings ---------- */
 .rate-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .star {

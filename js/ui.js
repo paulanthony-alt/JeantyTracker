@@ -260,10 +260,48 @@ function sunsetCard(f, threshold, locKey, todayKey) {
       <h3>${esc(dayName(f.sunsetDate))}${f.locked ? ' <span title="Locked in — within 24h" style="font-size:0.8rem">🔒</span>' : ''}</h3>
       <div class="time">${timeStr(f.sunsetDate)}</div>
       <div class="desc"><b>${sunsetLabel(f.score)}.</b> ${esc(sunsetDesc(f.score, f.hour))}</div>
+      ${sunsetConditions(f.hour)}
+      ${sunsetCauseTag(f.score, f.hour)}
       ${hot ? '<span class="sunset-tag">🔔 Alert-worthy</span>' : ''}
       ${rateRow}
     </div>
   </div>`;
+}
+
+// Concrete sky conditions at the sunset hour, so every score is verifiable.
+function sunsetConditions(h) {
+  if (!h) return '';
+  const units = window.__jeantyUnits || 'imperial';
+  const parts = [
+    `<span class="m" title="${esc(weatherText(h.weatherCode))}">${weatherIcon(h.weatherCode, h.isDay)} ${esc(weatherText(h.weatherCode))}</span>`,
+  ];
+  const cloud = h.cloud != null ? h.cloud
+    : (h.cloudHigh != null ? Math.max(h.cloudHigh, h.cloudMid ?? 0, h.cloudLow ?? 0) : null);
+  if (cloud != null) {
+    parts.push(`<span class="m" title="high ${h.cloudHigh ?? '–'}% · mid ${h.cloudMid ?? '–'}% · low ${h.cloudLow ?? '–'}%">☁️ <b>${Math.round(cloud)}%</b></span>`);
+  }
+  if (h.precipProb != null && h.precipProb > 5) parts.push(`<span class="m">☔ <b>${h.precipProb}%</b></span>`);
+  if (h.humidity != null) parts.push(`<span class="m">💧 <b>${Math.round(h.humidity)}%</b></span>`);
+  const hazy = (h.humidity != null && h.humidity > 75) || (h.visibility != null && h.visibility < 12000);
+  if (hazy) parts.push(`<span class="m">🌫️ <b>hazy</b></span>`);
+  const visKm = h.visibility != null ? Math.round(h.visibility / (units === 'imperial' ? 1609 : 1000)) : null;
+  if (visKm != null && h.visibility < 16000) parts.push(`<span class="m">👁️ <b>${visKm} ${units === 'imperial' ? 'mi' : 'km'}</b></span>`);
+  return `<div class="hour-metrics sunset-cond">${parts.join('')}</div>`;
+}
+
+const RAINY_CODES = new Set([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99]);
+
+// One-line reason a sunset scores low, so a "1" reads as "it's raining", not a bug.
+function sunsetCauseTag(score, h) {
+  if (score == null || score >= 50 || !h) return '';
+  let txt;
+  const rainy = (h.precipProb != null && h.precipProb >= 40) || RAINY_CODES.has(h.weatherCode);
+  if (rainy) txt = '☔ Rain around sunset';
+  else if ((h.cloudLow ?? 0) > 65) txt = '☁️ Overcast — grey horizon';
+  else if ((h.humidity != null && h.humidity > 75) || (h.visibility != null && h.visibility < 12000)) txt = '🌫️ Hazy — colour washed out';
+  else if ((h.cloudHigh ?? 0) < 8 && (h.cloudMid ?? 0) < 8) txt = '☀️ Clear — soft glow only';
+  else txt = '☁️ Little for the sky to light up';
+  return `<span class="cause-tag">${txt}</span>`;
 }
 
 function ratingRow(f, rating, canRate) {
